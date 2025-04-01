@@ -1,20 +1,4 @@
-/*
-|--------------------------------------------------------------------------
-| Ally Oauth driver
-|--------------------------------------------------------------------------
-|
-| Make sure you through the code and comments properly and make necessary
-| changes as per the requirements of your implementation.
-|
-*/
-
-/**
-|--------------------------------------------------------------------------
- *  Search keyword "YourDriver" and replace it with a meaningful name
-|--------------------------------------------------------------------------
- */
-
-import { Oauth2Driver } from '@adonisjs/ally'
+import { ApiRequest, Oauth2Driver, RedirectRequest } from '@adonisjs/ally'
 import type { HttpContext } from '@adonisjs/core/http'
 import type { AllyDriverContract, AllyUserContract, ApiRequestContract } from '@adonisjs/ally/types'
 
@@ -24,7 +8,7 @@ import type { AllyDriverContract, AllyUserContract, ApiRequestContract } from '@
  * token must have "token" and "type" properties and you may
  * define additional properties (if needed)
  */
-export type YourDriverAccessToken = {
+export type Auth0DriverAccessToken = {
   token: string
   type: 'bearer'
 }
@@ -32,27 +16,28 @@ export type YourDriverAccessToken = {
 /**
  * Scopes accepted by the driver implementation.
  */
-export type YourDriverScopes = string
+export type Auth0DriverScopes = 'openid' | 'profile' | 'email' | 'offline_access' | (string & {})
 
 /**
  * The configuration accepted by the driver implementation.
  */
-export type YourDriverConfig = {
+export type Auth0DriverConfig = {
   clientId: string
   clientSecret: string
   callbackUrl: string
   authorizeUrl?: string
   accessTokenUrl?: string
   userInfoUrl?: string
+  scopes?: Auth0DriverScopes[]
 }
 
 /**
  * Driver implementation. It is mostly configuration driven except the API call
  * to get user info.
  */
-export class YourDriver
-  extends Oauth2Driver<YourDriverAccessToken, YourDriverScopes>
-  implements AllyDriverContract<YourDriverAccessToken, YourDriverScopes>
+export class Auth0Driver
+  extends Oauth2Driver<Auth0DriverAccessToken, Auth0DriverScopes>
+  implements AllyDriverContract<Auth0DriverAccessToken, Auth0DriverScopes>
 {
   /**
    * The URL for the redirect request. The user will be redirected on this page
@@ -95,7 +80,7 @@ export class YourDriver
    * approach is to prefix the oauth provider name to `oauth_state` value. For example:
    * For example: "facebook_oauth_state"
    */
-  protected stateCookieName = 'YourDriver_oauth_state'
+  protected stateCookieName = 'auth0_oauth_state'
 
   /**
    * Parameter name to be used for sending and receiving the state from.
@@ -117,7 +102,7 @@ export class YourDriver
 
   constructor(
     ctx: HttpContext,
-    public config: YourDriverConfig
+    public config: Auth0DriverConfig
   ) {
     super(ctx, config)
 
@@ -130,12 +115,46 @@ export class YourDriver
     this.loadState()
   }
 
+  protected getAuthenticatedRequest(url: string, token: string): ApiRequest {
+    const request = this.httpClient(url)
+    request.header('Authorization', `Bearer ${token}`)
+    request.header('Accept', 'application/json')
+    request.parseAs('json')
+    return request
+  }
+
+  protected async getUserInfo(token: string, callback?: (request: ApiRequestContract) => void) {
+    const request = this.getAuthenticatedRequest(this.config.userInfoUrl || this.userInfoUrl, token)
+
+    if (typeof callback === 'function') {
+      callback(request)
+    }
+
+    const userInfo = await request.get()
+
+    return {
+      id: userInfo.sub, // Auth0 user ID
+      nickName: userInfo.nickname || '',
+      name: userInfo.name || '',
+      email: userInfo.email || '',
+      emailVerificationState: userInfo.email_verified
+        ? ('verified' as const)
+        : ('unverified' as const),
+      avatarUrl: userInfo.picture || '',
+      original: userInfo, // Include the full user info response
+    }
+  }
+
   /**
    * Optionally configure the authorization redirect request. The actual request
    * is made by the base implementation of "Oauth2" driver and this is a
    * hook to pre-configure the request.
    */
-  // protected configureRedirectRequest(request: RedirectRequest<YourDriverScopes>) {}
+  protected configureRedirectRequest(request: RedirectRequest<Auth0DriverScopes>) {
+    request.scopes(this.config.scopes || ['openid', 'profile', 'email'])
+    request.param('response_type', 'code')
+    request.param('grant_type', 'authorization_code')
+  }
 
   /**
    * Optionally configure the access token request. The actual request is made by
@@ -149,52 +168,43 @@ export class YourDriver
    * means "ACCESS DENIED".
    */
   accessDenied() {
-    return this.ctx.request.input('error') === 'user_denied'
+    const error = this.getError()
+    if (!error) {
+      return false
+    }
+
+    return error === 'access_denied'
   }
 
   /**
    * Get the user details by query the provider API. This method must return
-   * the access token and the user details both. Checkout the google
+   * both the access token and the user details. Checkout the google
    * implementation for same.
    *
    * https://github.com/adonisjs/ally/blob/develop/src/Drivers/Google/index.ts#L191-L199
    */
   async user(
     callback?: (request: ApiRequestContract) => void
-  ): Promise<AllyUserContract<YourDriverAccessToken>> {
-    const accessToken = await this.accessToken()
-    const request = this.httpClient(this.config.userInfoUrl || this.userInfoUrl)
+  ): Promise<AllyUserContract<Auth0DriverAccessToken>> {
+    const token = await this.accessToken(callback)
+    const user = await this.getUserInfo(token.token, callback)
 
-    /**
-     * Allow end user to configure the request. This should be called after your custom
-     * configuration, so that the user can override them (if needed)
-     */
-    if (typeof callback === 'function') {
-      callback(request)
+    return {
+      ...user,
+      token,
     }
-
-    /**
-     * Write your implementation details here.
-     */
   }
 
   async userFromToken(
     accessToken: string,
     callback?: (request: ApiRequestContract) => void
   ): Promise<AllyUserContract<{ token: string; type: 'bearer' }>> {
-    const request = this.httpClient(this.config.userInfoUrl || this.userInfoUrl)
+    const user = await this.getUserInfo(accessToken, callback)
 
-    /**
-     * Allow end user to configure the request. This should be called after your custom
-     * configuration, so that the user can override them (if needed)
-     */
-    if (typeof callback === 'function') {
-      callback(request)
+    return {
+      ...user,
+      token: { token: accessToken, type: 'bearer' as const },
     }
-
-    /**
-     * Write your implementation details here
-     */
   }
 }
 
@@ -202,6 +212,6 @@ export class YourDriver
  * The factory function to reference the driver implementation
  * inside the "config/ally.ts" file.
  */
-export function YourDriverService(config: YourDriverConfig): (ctx: HttpContext) => YourDriver {
-  return (ctx) => new YourDriver(ctx, config)
+export function Auth0DriverService(config: Auth0DriverConfig): (ctx: HttpContext) => Auth0Driver {
+  return (ctx) => new Auth0Driver(ctx, config)
 }

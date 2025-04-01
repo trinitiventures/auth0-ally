@@ -1,146 +1,134 @@
-# Ally driver boilerplate
-> A boilerplate for creating custom AdonisJS Ally drivers
+# Auth0 Ally Driver
+> A custom AdonisJS Ally driver for integrating with Auth0
 
-This repo is a starting point to create your custom OAuth2 drivers for [AdonisJS ally](https://docs.adonisjs.com/guides/authentication/social-authentication).
-
-The boilerplate is tailored to create one driver per project and publish it as a package on npm.
+This repo provides a custom OAuth2 driver for [AdonisJS ally](https://docs.adonisjs.com/guides/authentication/social-authentication) to integrate with Auth0.
 
 ## Getting started
 
-Following are the steps to get started.
+Follow these steps to get started:
 
-- Fork this repo and then clone it on your local machine.
-- Install all the dependencies using `npm`, `pnpm`, or `yarn` (whatever you prefer).
-- Open the `package.json` file and update the `name`, `description`, and the `author` details.
+1. Fork this repo and clone it to your local machine.
+2. Install all dependencies using `npm`, `pnpm`, or `yarn` (whichever you prefer).
+3. Open the `package.json` file and update the `name`, `description`, and `author` details.
 
-  ```json
-  {
-    "name": "ally-custom-service",
-    "description": "Starter kit to create an Ally driver for an OAuth2 service",
-    "author": ""
-  }
-  ```
+   ```json
+   {
+     "name": "auth0-ally-driver",
+     "description": "Custom AdonisJS Ally driver for Auth0",
+     "author": "Your Name"
+   }
+   ```
+
+4. Configure your Auth0 application:
+   - Go to your Auth0 dashboard and create a new application.
+   - Set the callback URL to match your AdonisJS application's callback route (e.g., `http://localhost:3333/ally/auth0/callback`).
+   - Note down the `Client ID`, `Client Secret`, and `Domain` (used for `authorizeUrl`, `accessTokenUrl`, and `userInfoUrl`).
 
 ## How is the code structured?
 
-The code for the driver is inside the `src` directory. Make sure to change the `YourDriver` keyword references inside the `src/driver.ts` file with the service name for which you are creating the driver. For example, Change `YourDriver` to `AppleDriver` or `InstagramDriver`.
+The code for the driver is inside the `src` directory. The `Auth0Driver` class implements the necessary methods to integrate with Auth0's OAuth2 API.
 
-The driver implementation is mainly driven by the config, except for the `user` and the `userFromToken` methods. Both of these methods are specific to the Oauth provider, so you have to implement them yourself.
+### Key URLs for Auth0
 
-The `src/driver.ts` file has the following exports.
+- **Authorize URL**: `https://YOUR_AUTH0_DOMAIN/authorize`
+- **Access Token URL**: `https://YOUR_AUTH0_DOMAIN/oauth/token`
+- **User Info URL**: `https://YOUR_AUTH0_DOMAIN/userinfo`
 
-#### YourDriverAccessToken
+Replace `YOUR_AUTH0_DOMAIN` with your Auth0 tenant domain (e.g., `dev-abc123.us.auth0.com`).
 
-The type defines the properties on the access token returned by the driver. You must read your OAuth provider documentation and list all the properties here.
+### Configuration
 
-**Do not change the pre-defined `token` and `bearer` properties.**
+The `Auth0DriverConfig` type defines the configuration options required by the driver:
 
 ```ts
-export type YourDriverAccessToken = {
-  token: string
-  type: 'bearer'
+export type Auth0DriverConfig = {
+  driver: 'auth0',
+  clientId: string,
+  clientSecret: string,
+  callbackUrl: string,
+  authorizeUrl?: string,
+  accessTokenUrl?: string,
+  userInfoUrl?: string,
+  scopes?: Auth0DriverScopes[]
 }
 ```
 
-#### YourDriverScopes
+### Driver Implementation
 
-Define a union of driver scopes accepted by your OAuth provider. You can check out the [official implementations](https://github.com/adonisjs/ally/blob/next/src/types.ts#L237) to see how they are defined.
+The `Auth0Driver` class extends the base `Oauth2Driver` class and implements the following:
 
-#### YourDriverConfig
-
-The type defines the configuration options that your driver expects. It must specify the following properties and any additional properties your driver needs to be functional.
-
-```ts
-export type YourDriverConfig = {
-  driver: 'YourDriverName'
-  clientId: string
-  clientSecret: string
-  callbackUrl: string
-  authorizeUrl?: string
-  accessTokenUrl?: string
-  userInfoUrl?: string
-}
-```
-
-#### YourDriver
-
-The driver implementation is a standard TypeScript class that extends the base `Oauth2Driver` class. The base driver class forces you to define the following instance properties.
-
-- `authorizeUrl` is the URL for the redirect request. The user is redirected to this URL to authorize the request. Check out provider docs to find this URL.
-- `accessTokenUrl` is used to exchange the authorization code for the access token. Check out provider docs to find this URL.
-- `userInfoUrl` is used to get the user profile information.
-- `codeParamName` is the query string parameter for reading the **authorization code** after redirecting the user back to the callback URL.
-- `errorParamName` is the query string parameter for finding the error after redirecting the user to the callback URL.
-- `stateCookieName` is the cookie name for storing the CSRF token (also known as the state). Make sure the cookie name does not collide with other drivers. A safer option is to prefix the driver name followed by the `oauth_state` keyword.
-- `stateParamName` is the query string parameter name for setting the state during the authorization redirect.
-- `scopeParamName` is the query string parameter name for sending the scopes during the authorization redirect.
-- `scopesSeparator` is the character used for separating multiple parameters.
-
-#### YourDriverService
-A factory function to reference the driver within the `config/ally.ts` file of an AdonisJS application. For example:
-
-```ts
-import { YourDriverService } from 'your-package-name'
-
-defineConfig({
-  github: YourDriverService({
-    clientId: env.get('GITHUB_CLIENT_ID')!,
-    clientSecret: env.get('GITHUB_CLIENT_SECRET')!,
-    callbackUrl: '',
-  }),
-})
-```
+- `authorizeUrl`: The URL for redirecting users to Auth0 for authorization.
+- `accessTokenUrl`: The URL for exchanging the authorization code for an access token.
+- `userInfoUrl`: The URL for fetching user profile information.
+- `user`: Fetches the user details and access token after authorization.
+- `userFromToken`: Fetches user details using an existing access token.
 
 ## Development checklist
 
-- [ ] I have renamed all `YourDriver` references to a more meaningful name inside the `src/driver.ts` file.
-- [ ] I have defined the `authorizeUrl` class property.
-- [ ] I have defined the `accessTokenUrl` class property.
-- [ ] I have defined the `userInfoUrl` class property.
-- [ ] I have defined the `codeParamName` class property.
-- [ ] I have defined the `errorParamName` class property.
-- [ ] I have defined the `stateCookieName` class property.
-- [ ] I have defined the `stateParamName` class property.
-- [ ] I have defined the `scopeParamName` class property.
-- [ ] I have defined the `scopesSeparator` class property.
-- [ ] I have implemented the `accessDenied` class method.
-- [ ] I have implemented the `user` class method.
-- [ ] I have implemented the `userFromToken` class method.
+- [x] Defined the `authorizeUrl` class property.
+- [x] Defined the `accessTokenUrl` class property.
+- [x] Defined the `userInfoUrl` class property.
+- [x] Implemented the `accessDenied` class method.
+- [x] Implemented the `user` class method.
+- [x] Implemented the `userFromToken` class method.
 
 ## Testing the driver
 
-You can test the driver by installing it locally inside your AdonisJS application. Following are the steps you need to perform.
+You can test the driver by installing it locally in your AdonisJS application. Follow these steps:
 
-- Compile the TypeScript code to JavaScript using the `npm run build` script.
-- `cd` into your AdonisJS project and install the package locally using `npm i path/to/your/driver/package`.
-- Finally, reference the driver using the `YourDriverService` factory function inside the `config/ally.ts` file.
+1. Compile the TypeScript code to JavaScript using the `npm run build` script.
+2. Navigate to your AdonisJS project and install the package locally using:
+   ```bash
+   npm i path/to/your/driver/package
+   ```
+3. Reference the driver in your `config/ally.ts` file:
+
+   ```ts
+   import Env from '@ioc:Adonis/Core/Env'
+   import { Auth0DriverService } from 'auth0-ally-driver'
+
+   export default {
+     auth0: Auth0DriverService({
+       clientId: Env.get('AUTH0_CLIENT_ID'),
+       clientSecret: Env.get('AUTH0_CLIENT_SECRET'),
+       callbackUrl: Env.get('AUTH0_CALLBACK_URL'),
+       authorizeUrl: `https://${Env.get('AUTH0_DOMAIN')}/authorize`,
+       accessTokenUrl: `https://${Env.get('AUTH0_DOMAIN')}/oauth/token`,
+       userInfoUrl: `https://${Env.get('AUTH0_DOMAIN')}/userinfo`,
+     }),
+   }
+   ```
+
+4. Add the necessary environment variables to your `.env` file:
+   ```env
+   AUTH0_CLIENT_ID=your-client-id
+   AUTH0_CLIENT_SECRET=your-client-secret
+   AUTH0_CALLBACK_URL=http://localhost:3333/ally/auth0/callback
+   AUTH0_DOMAIN=your-auth0-domain
+   ```
 
 ## FAQ's
 
 ### How do I define extra params during redirect?
 
-You can configure the redirect request by implementing the `configureRedirectRequest` method on the driver class. The method is already pre-defined and commented out.
+You can configure the redirect request by implementing the `configureRedirectRequest` method on the driver class:
 
 ```ts
-protected configureRedirectRequest(request: RedirectRequest<YourDriverScopes>) {
-  request.param('key', 'value')
+protected configureRedirectRequest(request: RedirectRequest<Auth0DriverScopes>) {
+  request.param('audience', 'https://YOUR_AUTH0_API_IDENTIFIER')
 }
 ```
 
 ### How do I define extra fields/params for the access token request?
 
-You can configure the access token request by implementing the `configureAccessTokenRequest` method on the driver class. The method is already pre-defined and commented out.
+You can configure the access token request by implementing the `configureAccessTokenRequest` method on the driver class:
 
 ```ts
 protected configureAccessTokenRequest(request: ApiRequest) {
-  // Request body
-  request.field('key', 'value')
-
-  // Query param
-  request.param('key', 'value')
+  request.field('audience', 'https://YOUR_AUTH0_API_IDENTIFIER')
 }
 ```
 
 ## Share with others
 
-Are you excited about sharing your work with others? Submit your package to the [awesome-adonisjs](https://github.com/adonisjs-community/awesome-adonisjs) repo.
+If you find this driver useful, consider sharing it with the community by submitting it to the [awesome-adonisjs](https://github.com/adonisjs-community/awesome-adonisjs) repoß
