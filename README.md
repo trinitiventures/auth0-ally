@@ -3,27 +3,6 @@
 
 This repo provides a custom OAuth2 driver for [AdonisJS ally](https://docs.adonisjs.com/guides/authentication/social-authentication) to integrate with Auth0.
 
-## Getting started
-
-Follow these steps to get started:
-
-1. Fork this repo and clone it to your local machine.
-2. Install all dependencies using `npm`, `pnpm`, or `yarn` (whichever you prefer).
-3. Open the `package.json` file and update the `name`, `description`, and `author` details.
-
-   ```json
-   {
-     "name": "auth0-ally-driver",
-     "description": "Custom AdonisJS Ally driver for Auth0",
-     "author": "Your Name"
-   }
-   ```
-
-4. Configure your Auth0 application:
-   - Go to your Auth0 dashboard and create a new application.
-   - Set the callback URL to match your AdonisJS application's callback route (e.g., `http://localhost:3333/ally/auth0/callback`).
-   - Note down the `Client ID`, `Client Secret`, and `Domain` (used for `authorizeUrl`, `accessTokenUrl`, and `userInfoUrl`).
-
 ## How is the code structured?
 
 The code for the driver is inside the `src` directory. The `Auth0Driver` class implements the necessary methods to integrate with Auth0's OAuth2 API.
@@ -62,15 +41,6 @@ The `Auth0Driver` class extends the base `Oauth2Driver` class and implements the
 - `userInfoUrl`: The URL for fetching user profile information.
 - `user`: Fetches the user details and access token after authorization.
 - `userFromToken`: Fetches user details using an existing access token.
-
-## Development checklist
-
-- [x] Defined the `authorizeUrl` class property.
-- [x] Defined the `accessTokenUrl` class property.
-- [x] Defined the `userInfoUrl` class property.
-- [x] Implemented the `accessDenied` class method.
-- [x] Implemented the `user` class method.
-- [x] Implemented the `userFromToken` class method.
 
 ## Testing the driver
 
